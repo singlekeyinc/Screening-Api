@@ -20,6 +20,7 @@ Create a new tenant screening request. This endpoint supports three request mode
 | **Landlord Form** | Returns form URL for landlord to complete | Default |
 | **Tenant Form** | Returns direct tenant application form | `tenant_form: true` |
 | **Immediate Screening** | Processes screening instantly | `run_now: true` |
+| **Update Screening** | Update a pending screening's data | `purchase_token: "<token>"` |
 
 All request modes return a `purchase_token` that identifies the screening.
 
@@ -178,6 +179,78 @@ curl -X POST "https://platform.singlekey.com/api/request" \
   "payment_status": "paid",
   "created": "2025-01-09T20:01:58.642255+00:00",
   "initiated": true
+}
+```
+
+---
+
+## 4. Update Existing Screening
+
+Update tenant or property data on a screening that has not yet been executed. Include the `purchase_token` returned from a previous request.
+
+This is useful for the **Deferred Execution** flow where you create a screening, attach documents or update data in subsequent requests, and then trigger execution with `run_now: true`.
+
+### Constraints
+
+- The screening must not be **complete**, **partial**, or **running**. If it is, the API returns `409 Conflict`.
+- If the `purchase_token` is not found or does not belong to your account, the API returns `404 Not Found`.
+
+### Updatable Fields
+
+Any field accepted by the create request can be updated, including:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ten_first_name` | string | Tenant's first name |
+| `ten_last_name` | string | Tenant's last name |
+| `ten_email` | string | Tenant's email |
+| `ten_address` | string | Tenant's current address |
+| `purchase_address` | string | Property address |
+| `purchase_rent` | integer | Monthly rent amount |
+
+### Example Request
+
+```bash
+curl -X POST "https://platform.singlekey.com/api/request" \
+  -H "Authorization: Token your_api_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "purchase_token": "abc123def456ghi789jkl012mno345pq",
+    "ten_first_name": "Janet",
+    "ten_last_name": "Smith",
+    "ten_address": "100 Queen St W, Toronto, ON, Canada, M5H 2N2",
+    "purchase_address": "100 Queen St W, Toronto, ON, Canada, M5H 2N2"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "purchase_token": "abc123def456ghi789jkl012mno345pq",
+  "payment_status": "landlord has not submitted",
+  "created": "2025-01-09T19:40:26.632576+00:00"
+}
+```
+
+### Error Responses
+
+#### Screening Not Found (404)
+
+```json
+{
+  "success": false,
+  "detail": "screening not found"
+}
+```
+
+#### Screening Already Processed (409)
+
+```json
+{
+  "success": false,
+  "detail": "screening cannot be updated, use /api/fetch_report/{purchase_token} to retrieve results"
 }
 ```
 

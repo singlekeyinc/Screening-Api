@@ -53,7 +53,132 @@ Direct API integration is ideal when you:
      │ ◄─────────────────                    │                    │
 ```
 
-## Quick Start
+## Deferred Execution Flow
+
+For integrations that require document uploads or multi-step data collection, use the **Deferred Execution** flow. This separates screening creation, data updates, and execution into distinct phases.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      DEFERRED EXECUTION FLOW                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────┐     ┌──────────────┐
+│  Your    │     │  SingleKey   │
+│  System  │     │  API         │
+└────┬─────┘     └──────┬───────┘
+     │                  │
+     │  Phase 1: Create screening (run_now: false)
+     │ ─────────────────►
+     │                  │
+     │  purchase_token  │
+     │ ◄─────────────────
+     │                  │
+     │  Phase 2: Update data / attach documents
+     │  POST with purchase_token
+     │ ─────────────────►
+     │                  │
+     │  (repeat as needed)
+     │ ─────────────────►
+     │                  │
+     │  Phase 3: Execute screening (run_now: true)
+     │  POST with purchase_token + run_now: true
+     │ ─────────────────►
+     │                  │
+     │  Screening initiated
+     │ ◄─────────────────
+     │                  │
+     │  Poll or wait for webhook
+     │                  │
+     │  GET /api/report/{token}
+     │ ─────────────────►
+     │                  │
+     │  Complete report  │
+     │ ◄─────────────────
+```
+
+### Phase 1: Initialize
+
+Create the screening record without triggering execution. Omit `run_now` or set it to `false`.
+
+```bash
+curl -X POST "https://platform.singlekey.com/api/request" \
+  -H "Authorization: Token your_api_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_customer_id": "landlord-123",
+    "external_tenant_id": "tenant-456",
+    "ll_first_name": "John",
+    "ll_last_name": "Smith",
+    "ll_email": "landlord@example.com",
+    "ten_first_name": "Jane",
+    "ten_last_name": "Doe",
+    "ten_email": "tenant@example.com",
+    "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1"
+  }'
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "purchase_token": "abc123def456ghi789jkl012mno345pq",
+  "payment_status": "landlord has not submitted",
+  "created": "2025-01-09T19:40:26.632576+00:00"
+}
+```
+
+### Phase 2: Update Data
+
+Update tenant or property information by resubmitting to the same endpoint with the `purchase_token`. You can call this multiple times.
+
+```bash
+curl -X POST "https://platform.singlekey.com/api/request" \
+  -H "Authorization: Token your_api_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "purchase_token": "abc123def456ghi789jkl012mno345pq",
+    "ten_address": "456 Oak Ave, Toronto, ON, Canada, M5V 2B3",
+    "ten_tel": "5551234567",
+    "ten_dob_year": 1990,
+    "ten_dob_month": 6,
+    "ten_dob_day": 15,
+    "purchase_rent": 2500
+  }'
+```
+
+> **Note:** Updates are only allowed while the screening is pending. Once a screening is complete, partial, or running, the API returns `409 Conflict`.
+
+### Phase 3: Execute
+
+When all data and documents are attached, trigger the screening by including `run_now: true` with the `purchase_token`.
+
+```bash
+curl -X POST "https://platform.singlekey.com/api/request" \
+  -H "Authorization: Token your_api_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "purchase_token": "abc123def456ghi789jkl012mno345pq",
+    "run_now": true
+  }'
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "purchase_token": "abc123def456ghi789jkl012mno345pq",
+  "payment_status": "paid",
+  "initiated": true
+}
+```
+
+> **Existing integrations are unaffected.** Partners who do not need the deferred flow can continue using the single-request `run_now: true` approach.
+
+---
+
+## Single-Request Flow (Quick Start)
 
 ### Basic Request
 

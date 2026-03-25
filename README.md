@@ -116,6 +116,16 @@ You collect all tenant data and submit directly for immediate processing.
 Your App → Collect Data → API Request (run_now: true) → Poll/Webhook → Fetch Report
 ```
 
+### Deferred Execution (Direct API with Documents)
+
+For integrations requiring document uploads or multi-step data collection:
+
+```
+Your App → Create Screening → Update Data / Attach Documents → Execute (run_now: true) → Fetch Report
+```
+
+All three steps use the same `POST /api/request` endpoint with a `purchase_token` to identify the screening.
+
 [Direct API Integration Guide →](integration-guides/direct-api-integration.md)
 
 ## Authentication
