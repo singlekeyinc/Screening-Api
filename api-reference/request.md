@@ -1,8 +1,13 @@
 # Create Screening Request
 
-`POST /api/request`
+Create a new tenant screening request. The endpoint you use depends on your integration type:
 
-Create a new tenant screening request. This is the primary endpoint for initiating screenings.
+| Endpoint | Use For |
+|----------|---------|
+| `POST /screen/embedded_flow_request` | **Form-based flows** (landlord form, tenant form) and deferred execution |
+| `POST /api/request` | **Direct API / immediate screening** only |
+
+Both endpoints accept the same fields and return the same response format. The difference is that `/api/request` automatically sets `run_now: true`, which triggers immediate processing. For form-based flows — where the landlord or tenant still needs to complete a form — use `/screen/embedded_flow_request` instead.
 
 ## Authentication
 
@@ -13,11 +18,11 @@ Create a new tenant screening request. This is the primary endpoint for initiati
 
 ## Request Modes
 
-| Mode | Description | Key Parameter |
-|------|-------------|---------------|
-| **Form-Based (Landlord)** | Landlord receives form to complete | Default (no special flag) |
-| **Form-Based (Tenant)** | Tenant receives direct application form | `tenant_form: true` |
-| **Direct API** | Immediate processing with all data | `run_now: true` |
+| Mode | Endpoint | Key Parameter |
+|------|----------|---------------|
+| **Form-Based (Landlord)** | `/screen/embedded_flow_request` | Default (no special flag) |
+| **Form-Based (Tenant)** | `/screen/embedded_flow_request` | `tenant_form: true` |
+| **Direct API** | `/api/request` | `run_now: true` (auto-set) |
 
 ---
 
@@ -28,7 +33,7 @@ Minimal data required. Landlord completes the rest via hosted form.
 ### Request
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -67,7 +72,7 @@ Direct tenant application form. Requires property address for jurisdiction.
 ### Request
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -188,7 +193,7 @@ curl -X POST "https://platform.singlekey.com/api/request" \
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `run_now` | boolean | `false` | Process immediately (direct API) |
+| `run_now` | boolean | `false` | Process immediately (auto-set to `true` on `/api/request`) |
 | `tenant_form` | boolean | `false` | Use tenant form flow |
 | `tenant_pays` | boolean | `false` | Tenant provides payment |
 | `update` | boolean | `false` | Force new report (bypass cache) |

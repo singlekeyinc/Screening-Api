@@ -22,7 +22,7 @@ Form-based integration is ideal when you want to:
 │  System  │     │  API         │     │  Tenant      │     │  Processing  │
 └────┬─────┘     └──────┬───────┘     └──────┬───────┘     └──────┬───────┘
      │                  │                    │                    │
-     │  1. POST /api/request                 │                    │
+     │  1. POST /screen/embedded_flow_request │                    │
      │  (minimal tenant data)                │                    │
      │ ─────────────────►                    │                    │
      │                  │                    │                    │
@@ -85,7 +85,7 @@ Your System → API → Tenant Form → Report
 ### Step 1: Create Screening Request
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -178,7 +178,7 @@ def fetch_and_store_report(token):
 ### Step 1: Create Screening Request
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -402,7 +402,7 @@ def create_application(listing_id):
     listing = get_listing(listing_id)
 
     response = requests.post(
-        f"{BASE_URL}/api/request",
+        f"{BASE_URL}/screen/embedded_flow_request",
         headers={
             "Authorization": f"Token {API_TOKEN}",
             "Content-Type": "application/json"

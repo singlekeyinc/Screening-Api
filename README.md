@@ -19,7 +19,7 @@ Tenant screening and credit reporting API for landlords and property managers. P
 
     Your System                 SingleKey                    Credit Bureaus
          │                          │                              │
-         │  1. POST /api/request    │                              │
+         │  1. Create screening     │                              │
          │ ─────────────────────────►                              │
          │                          │                              │
          │  2. purchase_token       │                              │
@@ -55,7 +55,7 @@ Contact your SingleKey account manager or email **info@singlekey.com** for sandb
 ### 2. Make Your First Request
 
 ```bash
-curl -X POST "https://sandbox.singlekey.com/api/request" \
+curl -X POST "https://sandbox.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token YOUR_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -70,7 +70,7 @@ curl -X POST "https://sandbox.singlekey.com/api/request" \
 ### 3. Get the Report
 
 ```bash
-curl -X GET "https://sandbox.singlekey.com/api/report/PURCHASE_TOKEN" \
+curl -X GET "https://sandbox.singlekey.com/screen/embedded_flow_get_report/PURCHASE_TOKEN" \
   -H "Authorization: Token YOUR_API_TOKEN"
 ```
 
@@ -83,11 +83,23 @@ curl -X GET "https://sandbox.singlekey.com/api/report/PURCHASE_TOKEN" \
 
 ## API Endpoints
 
+### Create Screening
+
+| Endpoint | Method | Use For |
+|----------|--------|---------|
+| [`/screen/embedded_flow_request`](api-reference/request.md) | POST | Form-based flows (landlord form, tenant form) and deferred execution |
+| [`/api/request`](api-reference/request.md) | POST | Direct API / immediate screening (`run_now` is auto-set to `true`) |
+
+Both create-screening endpoints accept the same fields. The difference is that `/api/request` automatically sets `run_now: true`, so it should only be used when you have all tenant data and want immediate processing.
+
+### Other Endpoints
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| [`/api/request`](api-reference/request.md) | POST | Create screening request |
 | [`/api/report/<token>`](api-reference/report.md) | GET | Fetch screening report |
+| [`/screen/embedded_flow_get_report/<token>`](routes/fetch-report-route.md) | GET | Fetch screening report (embedded flow) |
 | [`/api/applicant/<token>`](api-reference/applicant.md) | GET | Get applicant details |
+| [`/screen/applicant/<token>`](routes/applicant-data-route.md) | GET | Get applicant details (embedded flow) |
 | [`/api/report_pdf/<token>`](api-reference/report-pdf.md) | GET | Download report PDF |
 | [`/api/purchase_errors/<id>`](api-reference/purchase-errors.md) | POST | Validate screening data |
 | [`/api/payments`](api-reference/payments.md) | GET/POST | Payment management |
@@ -99,7 +111,7 @@ curl -X GET "https://sandbox.singlekey.com/api/report/PURCHASE_TOKEN" \
 SingleKey hosts the data collection forms. You just create the request and redirect users.
 
 ```
-Your App → API Request → Form URL → User Completes Form → Webhook → Fetch Report
+Your App → POST /screen/embedded_flow_request → Form URL → User Completes Form → Webhook → Fetch Report
 ```
 
 **Two form types available:**
@@ -113,7 +125,7 @@ Your App → API Request → Form URL → User Completes Form → Webhook → Fe
 You collect all tenant data and submit directly for immediate processing.
 
 ```
-Your App → Collect Data → API Request (run_now: true) → Poll/Webhook → Fetch Report
+Your App → Collect Data → POST /api/request → Poll/Webhook → Fetch Report
 ```
 
 ### Deferred Execution (Direct API with Documents)
@@ -124,7 +136,7 @@ For integrations requiring document uploads or multi-step data collection:
 Your App → Create Screening → Update Data / Attach Documents → Execute (run_now: true) → Fetch Report
 ```
 
-All three steps use the same `POST /api/request` endpoint with a `purchase_token` to identify the screening.
+The deferred flow uses `POST /screen/embedded_flow_request` with a `purchase_token` to identify the screening across steps. Use `/api/request` only for the final execution step, or pass `run_now: true` explicitly on the last call.
 
 [Direct API Integration Guide →](integration-guides/direct-api-integration.md)
 
@@ -178,7 +190,7 @@ print(response.json()["purchase_token"])
 ### JavaScript
 
 ```javascript
-const response = await fetch('https://sandbox.singlekey.com/api/request', {
+const response = await fetch('https://sandbox.singlekey.com/screen/embedded_flow_request', {
   method: 'POST',
   headers: {
     'Authorization': 'Token YOUR_TOKEN',
@@ -202,7 +214,7 @@ console.log(data.tenant_form_url);
 ### cURL
 
 ```bash
-curl -X POST "https://sandbox.singlekey.com/api/request" \
+curl -X POST "https://sandbox.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"external_customer_id":"landlord-123","external_tenant_id":"tenant-456","tenant_form":true,"ten_email":"jane@example.com","purchase_address":"123 Main St, Toronto, ON, Canada, M5V 1A1"}'

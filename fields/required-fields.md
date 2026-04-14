@@ -173,7 +173,8 @@ For immediate screening without forms, all tenant data must be provided upfront.
 
 | Endpoint | Method | Key Required Fields |
 |----------|--------|---------------------|
-| `/api/request` | POST | `external_customer_id`, `external_tenant_id`, landlord info |
+| `/screen/embedded_flow_request` | POST | `external_customer_id`, `external_tenant_id`, landlord info (form-based flows) |
+| `/api/request` | POST | `external_customer_id`, `external_tenant_id`, all tenant data (immediate screening — `run_now` is auto-set to `true`) |
 | `/api/report/<token>` | GET | Valid `purchase_token` |
 | `/api/applicant/<token>` | GET | Valid `purchase_token` |
 | `/api/report_pdf/<token>` | GET | Valid `purchase_token` |

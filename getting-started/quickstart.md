@@ -23,7 +23,7 @@ Let SingleKey handle data collection through hosted forms.
 ### Step 1: Create a Request
 
 ```bash
-curl -X POST "https://sandbox.singlekey.com/api/request" \
+curl -X POST "https://sandbox.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token YOUR_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

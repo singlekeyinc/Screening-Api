@@ -56,13 +56,13 @@ Common issues and their solutions when integrating with the SingleKey API.
 **A:** Ensure you're setting the correct headers:
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_token" \
   -H "Content-Type: application/json" \
   -d '{"your": "json data"}'
 ```
 
-Missing `Content-Type: application/json` can cause parsing issues.
+Missing `Content-Type: application/json` can cause parsing issues. Note: use `/api/request` for immediate screening only — see [API Reference](../api-reference/request.md) for endpoint details.
 
 #### Q: I'm getting validation errors but my data looks correct?
 

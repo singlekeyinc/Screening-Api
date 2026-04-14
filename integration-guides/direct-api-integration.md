@@ -57,6 +57,8 @@ Direct API integration is ideal when you:
 
 For integrations that require document uploads or multi-step data collection, use the **Deferred Execution** flow. This separates screening creation, data updates, and execution into distinct phases.
 
+> **Important:** Use `/screen/embedded_flow_request` for phases 1 and 2 of the deferred flow. The `/api/request` endpoint automatically sets `run_now: true`, which would trigger immediate processing before your data is complete.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      DEFERRED EXECUTION FLOW                                │
@@ -67,21 +69,22 @@ For integrations that require document uploads or multi-step data collection, us
 │  System  │     │  API         │
 └────┬─────┘     └──────┬───────┘
      │                  │
-     │  Phase 1: Create screening (run_now: false)
+     │  Phase 1: Create screening
+     │  POST /screen/embedded_flow_request
      │ ─────────────────►
      │                  │
      │  purchase_token  │
      │ ◄─────────────────
      │                  │
      │  Phase 2: Update data / attach documents
-     │  POST with purchase_token
+     │  POST /screen/embedded_flow_request with purchase_token
      │ ─────────────────►
      │                  │
      │  (repeat as needed)
      │ ─────────────────►
      │                  │
      │  Phase 3: Execute screening (run_now: true)
-     │  POST with purchase_token + run_now: true
+     │  POST /screen/embedded_flow_request with purchase_token + run_now: true
      │ ─────────────────►
      │                  │
      │  Screening initiated
@@ -101,7 +104,7 @@ For integrations that require document uploads or multi-step data collection, us
 Create the screening record without triggering execution. Omit `run_now` or set it to `false`.
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -130,10 +133,10 @@ Response:
 
 ### Phase 2: Update Data
 
-Update tenant or property information by resubmitting to the same endpoint with the `purchase_token`. You can call this multiple times.
+Update tenant or property information by resubmitting with the `purchase_token`. You can call this multiple times.
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -154,7 +157,7 @@ curl -X POST "https://platform.singlekey.com/api/request" \
 When all data and documents are attached, trigger the screening by including `run_now: true` with the `purchase_token`.
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{

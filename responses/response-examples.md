@@ -6,7 +6,7 @@ Example responses for common API scenarios.
 
 ## Create Screening Request
 
-`POST /api/request`
+`POST /screen/embedded_flow_request` (form-based) or `POST /api/request` (immediate screening)
 
 ### Initial Request - Landlord Form
 

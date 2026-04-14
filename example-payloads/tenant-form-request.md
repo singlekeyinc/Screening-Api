@@ -5,7 +5,7 @@ Request a form URL to send directly to tenants. Bypasses the landlord form entir
 ## Endpoint
 
 ```
-POST /api/request
+POST /screen/embedded_flow_request
 ```
 
 ## Headers
@@ -91,7 +91,7 @@ Content-Type: application/json
 ## cURL Example
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{

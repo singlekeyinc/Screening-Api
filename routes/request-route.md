@@ -1,8 +1,13 @@
 # Create Screening Request
 
-`POST /api/request` or `POST /screen/embedded_flow_request`
+Create a new tenant screening request. Two endpoints share the same underlying function:
 
-Create a new tenant screening request. This endpoint supports three request modes.
+| Endpoint | Behavior |
+|----------|----------|
+| `POST /screen/embedded_flow_request` | Respects the `run_now` flag as provided. Use this for **form-based flows** (landlord form, tenant form) and **deferred execution**. |
+| `POST /api/request` | Automatically sets `run_now: true`, so the screening is processed immediately. Use this for **direct API / immediate screening** only. |
+
+> **Important:** Because `/api/request` forces `run_now: true`, form-based requests sent to this endpoint will attempt to process immediately — before the landlord or tenant has completed their form. Always use `/screen/embedded_flow_request` for form-based integrations.
 
 ## Authentication
 
@@ -15,12 +20,12 @@ Create a new tenant screening request. This endpoint supports three request mode
 
 ## Request Modes
 
-| Mode | Description | Key Parameter |
-|------|-------------|---------------|
-| **Landlord Form** | Returns form URL for landlord to complete | Default |
-| **Tenant Form** | Returns direct tenant application form | `tenant_form: true` |
-| **Immediate Screening** | Processes screening instantly | `run_now: true` |
-| **Update Screening** | Update a pending screening's data | `purchase_token: "<token>"` |
+| Mode | Endpoint | Key Parameter |
+|------|----------|---------------|
+| **Landlord Form** | `/screen/embedded_flow_request` | Default |
+| **Tenant Form** | `/screen/embedded_flow_request` | `tenant_form: true` |
+| **Immediate Screening** | `/api/request` | `run_now: true` (auto-set) |
+| **Update Screening** | `/screen/embedded_flow_request` | `purchase_token: "<token>"` |
 
 All request modes return a `purchase_token` that identifies the screening.
 
@@ -46,7 +51,7 @@ Retrieve a form to redirect landlords to. The landlord can then:
 ### Example Request
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -95,7 +100,7 @@ Retrieve a form URL to send directly to the tenant. Include `tenant_form: true` 
 ### Example Request
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -211,7 +216,7 @@ Any field accepted by the create request can be updated, including:
 ### Example Request
 
 ```bash
-curl -X POST "https://platform.singlekey.com/api/request" \
+curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
   -H "Authorization: Token your_api_token" \
   -H "Content-Type: application/json" \
   -d '{
