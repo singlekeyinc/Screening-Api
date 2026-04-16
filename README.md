@@ -228,16 +228,14 @@ Receive real-time notifications when screening events occur:
 
 ```json
 {
-  "event": "screening.completed",
-  "data": {
-    "purchase_token": "abc123...",
-    "external_tenant_id": "tenant-456",
-    "singlekey_score": 720
-  }
+  "detail": "Report Complete",
+  "purchase_token": "abc123def456ghi789jkl012mno345pq",
+  "external_customer_id": "landlord-123",
+  "external_tenant_id": "tenant-456"
 }
 ```
 
-Configure webhooks by providing a `callback_url` in your requests.
+Configure your webhook URL in the **Partner Portal**. Optionally set a **Handshake Token** to verify webhook authenticity via the `Handshake-Token` header.
 
 [Webhook Integration Guide →](integration-guides/webhook-integration.md) | [Event Reference →](webhooks/events.md)
 

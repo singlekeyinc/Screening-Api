@@ -37,9 +37,7 @@ Content-Type: application/json
   "ten_tel": "5559876543",
 
   "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1",
-  "purchase_rent": 2000,
-
-  "callback_url": "https://yoursite.com/webhooks/singlekey"
+  "purchase_rent": 2000
 }
 ```
 
@@ -73,7 +71,7 @@ Content-Type: application/json
 | `ten_last_name` | string | Tenant's last name |
 | `ten_tel` | string | Tenant's phone |
 | `purchase_rent` | integer | Monthly rent |
-| `callback_url` | string | Webhook URL |
+| `external_listing_id` | string | Your listing ID |
 
 ## Expected Response
 
@@ -134,7 +132,7 @@ Depending on your account configuration:
 
 - The `purchase_address` determines which screening product is used (jurisdiction-based)
 - Pre-populate tenant data to reduce friction
-- Use `callback_url` to receive real-time notifications
+- Configure your webhook URL in the Partner Portal to receive notifications
 
 ## See Also
 

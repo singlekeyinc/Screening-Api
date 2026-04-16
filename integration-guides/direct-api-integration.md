@@ -205,7 +205,6 @@ curl -X POST "https://platform.singlekey.com/api/request" \
     "ten_dob_day": 15,
     "ten_address": "456 Oak Ave, Toronto, ON, Canada, M5V 2B3",
     "ten_sin": "123456789",
-    "callback_url": "https://yoursite.com/webhooks/singlekey"
   }'
 ```
 
@@ -316,7 +315,6 @@ class SingleKeyAPI:
             "purchase_rent": property_info.get('rent'),
 
             # Webhook for notifications
-            "callback_url": "https://yoursite.com/webhooks/singlekey"
         }
 
         response = requests.post(
@@ -477,10 +475,7 @@ class SingleKeyAPI {
 
       // Property info
       purchase_address: propertyInfo?.address,
-      purchase_rent: propertyInfo?.rent,
-
-      // Webhook
-      callback_url: 'https://yoursite.com/webhooks/singlekey'
+      purchase_rent: propertyInfo?.rent
     };
 
     const response = await axios.post(
@@ -608,14 +603,13 @@ def poll_for_report(api, token, max_attempts=30, delay=10):
 # Your webhook endpoint
 @app.route('/webhooks/singlekey', methods=['POST'])
 def handle_webhook():
-    event = request.json
+    data = request.json
 
-    if event['event'] == 'screening.completed':
-        token = event['data']['purchase_token']
-        score = event['data']['singlekey_score']
+    if data['detail'] == 'Report Complete':
+        token = data['purchase_token']
 
         # Update your database
-        update_screening_status(token, 'completed', score)
+        update_screening_status(token, 'completed')
 
         # Notify relevant parties
         send_notification(token)

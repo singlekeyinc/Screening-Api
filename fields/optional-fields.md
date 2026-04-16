@@ -47,7 +47,6 @@ Fields for integrating with your CRM or property management system.
 |-------|------|-------------|---------|
 | `external_deal_id` | string | Your CRM deal/transaction ID | `"deal-abc123"` |
 | `external_listing_id` | string | Your property listing ID | `"listing-xyz789"` |
-| `callback_url` | string | Webhook URL for notifications | `"https://yoursite.com/webhooks/screening"` |
 
 ### Example: Full Integration
 
@@ -56,9 +55,7 @@ Fields for integrating with your CRM or property management system.
   "external_customer_id": "landlord-123",
   "external_tenant_id": "tenant-456",
   "external_deal_id": "deal-abc123",
-  "external_listing_id": "listing-xyz789",
-  "callback_url": "https://yoursite.com/webhooks/screening",
-  // ... other fields
+  "external_listing_id": "listing-xyz789"
 }
 ```
 
@@ -351,7 +348,6 @@ These fields capture tenant declarations. Accept `true`/`false` boolean or `"yes
   "external_tenant_id": "tenant-67890",
   "external_deal_id": "deal-abc123",
   "external_listing_id": "listing-xyz789",
-  "callback_url": "https://yoursite.com/webhooks/screening",
 
   "run_now": true,
 

@@ -235,13 +235,7 @@ Use `tenant_form_url` when you want the tenant to apply directly.
 
 4. **No firewall blocking:** SingleKey IPs must be allowed
 
-5. **callback_url is set in request:**
-   ```json
-   {
-     "callback_url": "https://yoursite.com/webhooks/singlekey",
-     // ... other fields
-   }
-   ```
+5. **Webhook URL is configured in Partner Portal**
 
 #### Q: How do I test webhooks locally?
 
@@ -254,24 +248,28 @@ python app.py  # Running on port 5000
 # In another terminal
 ngrok http 5000
 
-# Use ngrok URL as callback_url
+# Set your ngrok URL as the webhook URL in Partner Portal
 # https://abc123.ngrok.io/webhooks/singlekey
 ```
 
 #### Q: Webhooks are arriving out of order?
 
-**A:** Webhook order is not guaranteed. Use timestamps and idempotent handlers:
+**A:** Webhook order is not guaranteed. Design your handlers to be idempotent:
 
 ```python
-def handle_webhook(event):
-    webhook_id = event.get('webhook_id')
+def handle_webhook(data):
+    purchase_token = data.get('purchase_token')
+    detail = data.get('detail')
 
     # Check if already processed
-    if WebhookLog.objects.filter(webhook_id=webhook_id).exists():
+    if WebhookLog.objects.filter(
+        purchase_token=purchase_token,
+        detail=detail
+    ).exists():
         return  # Already handled
 
     # Process and log
-    WebhookLog.objects.create(webhook_id=webhook_id)
+    WebhookLog.objects.create(purchase_token=purchase_token, detail=detail)
     # ... handle event
 ```
 

@@ -238,7 +238,7 @@ Result: Invalid
 | Rule | Requirement |
 |------|-------------|
 | Type | Integer |
-| Range | -2,147,483,648 to +2,147,483,647 |
+| Range | 0 to 2,000,000 |
 | Format | No commas or decimals |
 
 ### Examples

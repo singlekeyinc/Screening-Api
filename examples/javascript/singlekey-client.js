@@ -160,7 +160,6 @@ class SingleKeyClient {
    * @param {Object} options.property - Property information (optional)
    * @param {boolean} options.runNow - Process immediately (default true)
    * @param {boolean} options.tenantPays - Tenant provides payment
-   * @param {string} options.callbackUrl - Webhook URL
    * @returns {Promise<Object>} Screening result with purchase_token
    */
   async createScreening({
@@ -169,7 +168,6 @@ class SingleKeyClient {
     property = null,
     runNow = true,
     tenantPays = false,
-    callbackUrl = null,
     externalDealId = null
   }) {
     const payload = {
@@ -208,10 +206,9 @@ class SingleKeyClient {
       if (property.unit) payload.purchase_unit = property.unit;
     }
 
-    if (callbackUrl) payload.callback_url = callbackUrl;
     if (externalDealId) payload.external_deal_id = externalDealId;
 
-    return this._request('POST', '/api/request', payload);
+    return this._request('POST', '/screen/embedded_flow_request', payload);
   }
 
   /**
@@ -225,8 +222,7 @@ class SingleKeyClient {
     tenantFirstName = null,
     tenantLastName = null,
     propertyAddress = null,
-    tenantForm = false,
-    callbackUrl = null
+    tenantForm = false
   }) {
     const payload = {
       external_customer_id: landlord.externalId || `ll-${landlord.email}`,
@@ -248,9 +244,7 @@ class SingleKeyClient {
       if (propertyAddress) payload.purchase_address = propertyAddress;
     }
 
-    if (callbackUrl) payload.callback_url = callbackUrl;
-
-    return this._request('POST', '/api/request', payload);
+    return this._request('POST', '/screen/embedded_flow_request', payload);
   }
 
   /**
@@ -278,11 +272,11 @@ class SingleKeyClient {
 
   /**
    * Validate screening for errors
-   * @param {string} screeningId - Screening ID to validate
+   * @param {string} purchaseToken - Token from createScreening
    * @returns {Promise<Object>} Validation result
    */
-  async validateScreening(screeningId) {
-    return this._request('POST', `/api/purchase_errors/${screeningId}`);
+  async validateScreening(purchaseToken) {
+    return this._request('POST', `/api/purchase_errors/${purchaseToken}`);
   }
 
   /**
@@ -362,7 +356,6 @@ async function main() {
         address: '123 Main St, Toronto, ON, Canada, M5V 1A1',
         rent: 2000
       },
-      callbackUrl: 'https://yoursite.com/webhooks/singlekey'
     });
 
     console.log(`Screening created: ${result.purchase_token}`);

@@ -180,7 +180,6 @@ Fields for tracking and correlating records with your system.
 | Field | Type | Description |
 |-------|------|-------------|
 | `promo_code` | string | Promotional code for discounts |
-| `callback_url` | string | Webhook URL for notifications |
 
 ---
 

@@ -31,8 +31,7 @@ curl -X POST "https://sandbox.singlekey.com/screen/embedded_flow_request" \
     "external_tenant_id": "tenant-456",
     "tenant_form": true,
     "ten_email": "tenant@example.com",
-    "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1",
-    "callback_url": "https://yoursite.com/webhooks"
+    "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1"
   }'
 ```
 
@@ -52,15 +51,14 @@ Send the tenant to `tenant_form_url` to complete their application.
 
 ### Step 4: Receive Webhook
 
-When complete, you'll receive:
+When the report is ready, you'll receive:
 
 ```json
 {
-  "event": "screening.completed",
-  "data": {
-    "purchase_token": "abc123def456...",
-    "singlekey_score": 720
-  }
+  "detail": "Report Complete",
+  "purchase_token": "abc123def456...",
+  "external_customer_id": "landlord-123",
+  "external_tenant_id": "tenant-456"
 }
 ```
 
@@ -100,9 +98,7 @@ curl -X POST "https://sandbox.singlekey.com/api/request" \
     "ten_dob_month": 6,
     "ten_dob_day": 15,
     "ten_address": "456 Oak Ave, Toronto, ON, Canada, M5V 2B3",
-    "ten_sin": "123456789",
-
-    "callback_url": "https://yoursite.com/webhooks"
+    "ten_sin": "123456789"
   }'
 ```
 

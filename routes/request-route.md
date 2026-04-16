@@ -300,7 +300,7 @@ You can include any field from the [Available Fields Reference](../fields/availa
 | `ll_tel` | string | Landlord phone number |
 | `ten_tel` | string | Tenant phone number |
 | `purchase_rent` | integer | Monthly rent amount |
-| `callback_url` | string | Webhook URL for notifications |
+| `external_listing_id` | string | Your listing ID |
 
 ---
 

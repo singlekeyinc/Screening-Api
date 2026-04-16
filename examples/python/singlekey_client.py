@@ -194,7 +194,6 @@ class SingleKeyClient:
         property_info: Property = None,
         run_now: bool = True,
         tenant_pays: bool = False,
-        callback_url: str = None,
         external_deal_id: str = None
     ) -> Dict[str, Any]:
         """
@@ -206,7 +205,6 @@ class SingleKeyClient:
             property_info: Property details (optional)
             run_now: Process immediately (default True)
             tenant_pays: Tenant provides payment (default False)
-            callback_url: Webhook URL for notifications
             external_deal_id: Your CRM deal ID
 
         Returns:
@@ -258,13 +256,10 @@ class SingleKeyClient:
             if property_info.unit:
                 payload["purchase_unit"] = property_info.unit
 
-        if callback_url:
-            payload["callback_url"] = callback_url
-
         if external_deal_id:
             payload["external_deal_id"] = external_deal_id
 
-        return self._request("POST", "/api/request", data=payload)
+        return self._request("POST", "/screen/embedded_flow_request", data=payload)
 
     def create_form_request(
         self,
@@ -273,8 +268,7 @@ class SingleKeyClient:
         tenant_first_name: str = None,
         tenant_last_name: str = None,
         property_address: str = None,
-        tenant_form: bool = False,
-        callback_url: str = None
+        tenant_form: bool = False
     ) -> Dict[str, Any]:
         """
         Create a form-based screening request.
@@ -286,7 +280,6 @@ class SingleKeyClient:
             tenant_last_name: Tenant's last name (optional)
             property_address: Property address (required for tenant_form)
             tenant_form: Use direct tenant form (default False)
-            callback_url: Webhook URL for notifications
 
         Returns:
             Dict with purchase_token and form_url
@@ -318,10 +311,7 @@ class SingleKeyClient:
             if property_address:
                 payload["purchase_address"] = property_address
 
-        if callback_url:
-            payload["callback_url"] = callback_url
-
-        return self._request("POST", "/api/request", data=payload)
+        return self._request("POST", "/screen/embedded_flow_request", data=payload)
 
     def get_report(self, purchase_token: str) -> Dict[str, Any]:
         """
@@ -364,17 +354,17 @@ class SingleKeyClient:
             params=params
         )
 
-    def validate_screening(self, screening_id: str) -> Dict[str, Any]:
+    def validate_screening(self, purchase_token: str) -> Dict[str, Any]:
         """
         Validate screening data for errors.
 
         Args:
-            screening_id: The screening ID to validate
+            purchase_token: Token from create_screening
 
         Returns:
             Dict with validation status and any errors
         """
-        return self._request("POST", f"/api/purchase_errors/{screening_id}")
+        return self._request("POST", f"/api/purchase_errors/{purchase_token}")
 
     def download_pdf(self, purchase_token: str, output_path: str) -> bool:
         """
@@ -467,7 +457,6 @@ if __name__ == "__main__":
                 address="123 Main St, Toronto, ON, Canada, M5V 1A1",
                 rent=2000
             ),
-            callback_url="https://yoursite.com/webhooks/singlekey"
         )
 
         print(f"Screening created: {result['purchase_token']}")

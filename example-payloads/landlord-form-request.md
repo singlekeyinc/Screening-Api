@@ -53,9 +53,7 @@ Content-Type: application/json
   "ten_tel": "5559876543",
 
   "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1",
-  "purchase_rent": 2000,
-
-  "callback_url": "https://yoursite.com/webhooks/singlekey"
+  "purchase_rent": 2000
 }
 ```
 
@@ -82,7 +80,7 @@ Content-Type: application/json
 | `ten_tel` | string | Tenant's phone |
 | `purchase_address` | string | Property address |
 | `purchase_rent` | integer | Monthly rent |
-| `callback_url` | string | Webhook URL |
+| `external_listing_id` | string | Your listing ID |
 
 ## Expected Response
 
@@ -132,7 +130,7 @@ curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
 
 - The landlord must provide additional information (property details) on the form
 - Pre-populate fields to reduce friction for landlords
-- Use `callback_url` to receive webhook notifications
+- Configure your webhook URL in the Partner Portal to receive notifications
 
 ## See Also
 

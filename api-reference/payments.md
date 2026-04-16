@@ -139,6 +139,8 @@ curl -X POST "https://platform.singlekey.com/api/payments" \
 
 ## How Payments Work
 
+SingleKey offers both pay-as-you-go and monthly billing for screenings. You can set up your payment method programmatically via the API or through the SingleKey Portal. If your billing needs don't fit a standard model, contact your account manager — we're happy to work with you on a solution.
+
 SingleKey supports multiple payment models depending on your account configuration:
 
 ### 1. Saved Payment Method (Default)

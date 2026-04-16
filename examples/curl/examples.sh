@@ -39,8 +39,7 @@ curl -X POST "${BASE_URL}/api/request" \
     "ten_address": "456 Oak Ave, Toronto, ON, Canada, M5V 2B3",
     "ten_sin": "123456789",
     "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1",
-    "purchase_rent": 2000,
-    "callback_url": "https://yoursite.com/webhooks/singlekey"
+    "purchase_rent": 2000
   }'
 
 echo -e "\n"
@@ -50,7 +49,7 @@ echo -e "\n"
 # ============================================================================
 echo "=== Creating Landlord Form Screening ==="
 
-curl -X POST "${BASE_URL}/api/request" \
+curl -X POST "${BASE_URL}/screen/embedded_flow_request" \
   -H "Authorization: Token ${API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -62,8 +61,7 @@ curl -X POST "${BASE_URL}/api/request" \
     "ll_tel": "5551234567",
     "ten_first_name": "Jane",
     "ten_last_name": "Doe",
-    "ten_email": "tenant@example.com",
-    "callback_url": "https://yoursite.com/webhooks/singlekey"
+    "ten_email": "tenant@example.com"
   }'
 
 echo -e "\n"
@@ -73,7 +71,7 @@ echo -e "\n"
 # ============================================================================
 echo "=== Creating Tenant Form Screening ==="
 
-curl -X POST "${BASE_URL}/api/request" \
+curl -X POST "${BASE_URL}/screen/embedded_flow_request" \
   -H "Authorization: Token ${API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -81,8 +79,7 @@ curl -X POST "${BASE_URL}/api/request" \
     "external_tenant_id": "tenant-101",
     "tenant_form": true,
     "ten_email": "tenant@example.com",
-    "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1",
-    "callback_url": "https://yoursite.com/webhooks/singlekey"
+    "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1"
   }'
 
 echo -e "\n"
@@ -122,9 +119,9 @@ echo -e "\n"
 # ============================================================================
 echo "=== Validating Screening Data ==="
 
-SCREENING_ID="12345"  # Replace with actual screening ID
+VALIDATE_TOKEN="abc123def456ghi789jkl012mno345pq"  # Replace with actual purchase token
 
-curl -X POST "${BASE_URL}/api/purchase_errors/${SCREENING_ID}" \
+curl -X POST "${BASE_URL}/api/purchase_errors/${VALIDATE_TOKEN}" \
   -H "Authorization: Token ${API_TOKEN}"
 
 echo -e "\n"

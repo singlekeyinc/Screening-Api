@@ -46,7 +46,6 @@ curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
     "ten_first_name": "Jane",
     "ten_last_name": "Doe",
     "ten_email": "tenant@example.com",
-    "callback_url": "https://yoursite.com/webhooks"
   }'
 ```
 
@@ -80,8 +79,7 @@ curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
     "external_tenant_id": "tenant-456",
     "tenant_form": true,
     "ten_email": "tenant@example.com",
-    "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1",
-    "callback_url": "https://yoursite.com/webhooks"
+    "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1"
   }'
 ```
 
@@ -129,9 +127,7 @@ curl -X POST "https://platform.singlekey.com/api/request" \
     "ten_sin": "123456789",
 
     "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1",
-    "purchase_rent": 2000,
-
-    "callback_url": "https://yoursite.com/webhooks"
+    "purchase_rent": 2000
   }'
 ```
 
@@ -202,7 +198,6 @@ curl -X POST "https://platform.singlekey.com/api/request" \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `callback_url` | string | Webhook URL for notifications |
 | `external_deal_id` | string | Your CRM deal ID |
 | `external_listing_id` | string | Your listing ID |
 | `promo_code` | string | Promotional code |

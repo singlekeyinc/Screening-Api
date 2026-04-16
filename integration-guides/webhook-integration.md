@@ -15,63 +15,64 @@ Webhooks provide real-time notifications when important events occur, eliminatin
 
 ## Setting Up Webhooks
 
-### Step 1: Create Endpoint
+### Step 1: Configure Your Webhook URL
 
-Create a publicly accessible HTTPS endpoint to receive webhook notifications.
+Set your webhook URL in the **Partner Portal** under API settings. All webhook notifications for your account are sent to this URL.
 
-**Requirements:**
-- HTTPS protocol (HTTP not supported)
-- Responds within 30 seconds
-- Returns 2xx status code on success
-- Handles POST requests with JSON body
+### Step 2: Set Up a Handshake Token (Recommended)
 
-### Step 2: Include Callback URL
+In your Partner Portal, configure a **Handshake Token**. SingleKey will include it in the headers of every webhook so you can verify authenticity:
 
-Add `callback_url` to your screening requests:
-
-```json
-{
-  "external_customer_id": "landlord-123",
-  "external_tenant_id": "tenant-456",
-  "callback_url": "https://yoursite.com/webhooks/singlekey",
-  // ... other fields
-}
+```
+Handshake-Token: your_handshake_token
 ```
 
-### Step 3: Implement Handler
+### Step 3: Create Your Endpoint
+
+Create a publicly accessible HTTPS endpoint that:
+- Accepts POST requests with a JSON body
+- Returns a `200` status code within 30 seconds
+- Verifies the `Handshake-Token` header (if configured)
+
+### Step 4: Implement Your Handler
 
 ```python
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
+HANDSHAKE_TOKEN = "your_handshake_token"
+
 @app.route('/webhooks/singlekey', methods=['POST'])
 def handle_webhook():
-    # Parse event
-    event = request.json
-    event_type = event.get('event')
-    data = event.get('data', {})
+    # Verify handshake token
+    token = request.headers.get('Handshake-Token', '')
+    if token != HANDSHAKE_TOKEN:
+        return jsonify({"error": "Unauthorized"}), 401
 
-    # Route to handler
-    handlers = {
-        'screening.completed': handle_completed,
-        'screening.submitted': handle_submitted,
-        'screening.failed': handle_failed,
-        'form.opened': handle_form_opened,
-        'invite.sent': handle_invite_sent,
-    }
+    # Parse webhook
+    data = request.json
+    detail = data.get('detail')
+    purchase_token = data.get('purchase_token')
 
-    handler = handlers.get(event_type)
-    if handler:
-        handler(data)
+    # Route to handler based on detail value
+    if detail == 'Report Complete':
+        handle_report_complete(data)
+    elif detail == 'Report in Progress':
+        handle_report_in_progress(data)
+    elif detail == 'Partial Report Complete':
+        handle_partial_report(data)
+    elif detail == 'Request sent to tenant':
+        handle_request_sent(data)
+    elif detail == 'Tenant email opened':
+        handle_email_opened(data)
 
-    # Always return 200 to acknowledge receipt
     return jsonify({"received": True}), 200
 ```
 
 ---
 
-## Webhook Architecture
+## Webhook Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -79,243 +80,161 @@ def handle_webhook():
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌────────────┐      ┌────────────┐      ┌────────────┐      ┌────────────┐
-│ SingleKey  │      │  Webhook   │      │   Your     │      │   Your     │
-│ Event      │─────►│  Dispatch  │─────►│  Endpoint  │─────►│  Handler   │
+│ Screening  │      │ SingleKey  │      │   Your     │      │   Your     │
+│ Event      │─────►│ Webhook    │─────►│ Endpoint   │─────►│ Handler    │
+│ Occurs     │      │ Dispatch   │      │            │      │            │
 └────────────┘      └────────────┘      └────────────┘      └────────────┘
-                          │                   │
-                          │                   │
-                    ┌─────▼─────┐       ┌─────▼─────┐
-                    │  Retry    │       │  Return   │
-                    │  Queue    │◄──────│  200 OK   │
-                    └───────────┘       └───────────┘
-                          │
-                          │ On failure
-                          ▼
-                    ┌───────────┐
-                    │  Retry    │
-                    │  (6x max) │
-                    └───────────┘
+                                             │
+                                       ┌─────▼─────┐
+                                       │ Return    │
+                                       │ 200 OK    │
+                                       └───────────┘
+```
+
+### Typical Event Sequence
+
+```
+1. "Request sent to tenant"      → Invitation emailed to tenant
+2. "Tenant email opened"         → Tenant opened email / started application
+3. "Report in Progress"          → Tenant submitted, screening processing
+4. "Partial Report Complete"     → Credit data ready (not always sent)
+5. "Report Complete"             → Full report ready to fetch
 ```
 
 ---
 
 ## Event Handlers
 
-### Screening Completed
+### Report Complete
 
-The most important event - fired when a report is ready.
+The most important webhook — the full report is ready.
 
 ```python
-def handle_completed(data):
-    """Handle completed screening."""
+def handle_report_complete(data):
+    """Handle completed screening report."""
     purchase_token = data['purchase_token']
-    tenant_id = data['external_tenant_id']
-    customer_id = data['external_customer_id']
-    score = data.get('singlekey_score')
+    external_tenant_id = data['external_tenant_id']
+    external_customer_id = data['external_customer_id']
 
     # Update your database
     screening = Screening.objects.get(purchase_token=purchase_token)
     screening.status = 'completed'
-    screening.score = score
     screening.completed_at = timezone.now()
     screening.save()
 
-    # Fetch full report
+    # Fetch full report from SingleKey
     report = fetch_report(purchase_token)
 
     # Notify landlord
-    send_landlord_notification(
-        customer_id,
-        tenant_id,
-        score,
-        report['report_url']
-    )
+    send_landlord_notification(external_customer_id, external_tenant_id)
 
-    # Update application status
-    update_application_status(tenant_id, 'screened', score)
-
-    logger.info(f"Screening completed: {purchase_token}, score: {score}")
+    logger.info(f"Report complete: {purchase_token}")
 ```
 
-### Screening Submitted
+### Report in Progress
 
-Fired when tenant submits their application (before processing).
+Tenant has submitted their application — screening is processing.
 
 ```python
-def handle_submitted(data):
-    """Handle application submission."""
+def handle_report_in_progress(data):
+    """Handle tenant submission."""
     purchase_token = data['purchase_token']
-    tenant_id = data['external_tenant_id']
 
-    # Update status
     screening = Screening.objects.get(purchase_token=purchase_token)
     screening.status = 'processing'
     screening.submitted_at = timezone.now()
     screening.save()
 
-    # Notify landlord that application is being processed
-    send_notification(
-        screening.landlord_id,
-        f"Tenant application submitted - processing in progress"
-    )
-
-    logger.info(f"Screening submitted: {purchase_token}")
+    logger.info(f"Report in progress: {purchase_token}")
 ```
 
-### Screening Failed
+### Partial Report Complete
 
-Fired when screening cannot be completed.
+Credit bureau data is ready, but the full report is still pending.
 
 ```python
-def handle_failed(data):
-    """Handle screening failure."""
+def handle_partial_report(data):
+    """Handle partial report availability."""
     purchase_token = data['purchase_token']
-    reason = data.get('reason', 'unknown')
-    errors = data.get('errors', [])
 
-    # Update status
     screening = Screening.objects.get(purchase_token=purchase_token)
-    screening.status = 'failed'
-    screening.failure_reason = reason
+    screening.status = 'partial'
     screening.save()
 
-    # Alert team for investigation
-    send_alert(
-        f"Screening failed: {purchase_token}\n"
-        f"Reason: {reason}\n"
-        f"Errors: {', '.join(errors)}"
-    )
+    # Optionally fetch partial report
+    report = fetch_report(purchase_token)
 
-    # Notify landlord
-    send_landlord_notification(
-        screening.landlord_id,
-        f"Screening could not be completed. Our team is investigating."
-    )
-
-    logger.error(f"Screening failed: {purchase_token}, reason: {reason}")
+    logger.info(f"Partial report ready: {purchase_token}")
 ```
 
-### Form Opened
+### Request Sent to Tenant
 
-Fired when tenant opens the application form.
+Invitation email has been sent to the tenant.
 
 ```python
-def handle_form_opened(data):
-    """Track when tenant opens form."""
+def handle_request_sent(data):
+    """Handle invitation sent."""
     purchase_token = data['purchase_token']
-    tenant_email = data.get('tenant', {}).get('email')
 
-    # Update tracking
+    screening = Screening.objects.get(purchase_token=purchase_token)
+    screening.invite_sent_at = timezone.now()
+    screening.save()
+
+    logger.info(f"Request sent to tenant: {purchase_token}")
+```
+
+### Tenant Email Opened
+
+Tenant has opened the invitation email and started the application.
+
+```python
+def handle_email_opened(data):
+    """Handle tenant opening the application."""
+    purchase_token = data['purchase_token']
+
     screening = Screening.objects.get(purchase_token=purchase_token)
     screening.form_opened_at = timezone.now()
     screening.save()
 
-    # Could trigger reminder cancellation
-    cancel_reminder(purchase_token)
-
-    logger.info(f"Form opened: {purchase_token}, tenant: {tenant_email}")
-```
-
-### Invite Sent
-
-Fired when invitation email is sent to tenant.
-
-```python
-def handle_invite_sent(data):
-    """Track invitation sent."""
-    purchase_token = data['purchase_token']
-    tenant_email = data.get('tenant', {}).get('email')
-    invite_type = data.get('invite', {}).get('type')
-
-    # Update tracking
-    screening = Screening.objects.get(purchase_token=purchase_token)
-    screening.invite_sent_at = timezone.now()
-    screening.invite_type = invite_type
-    screening.save()
-
-    # Schedule reminder if not completed within 24 hours
-    schedule_reminder(purchase_token, delay_hours=24)
-
-    logger.info(f"Invite sent: {purchase_token}, type: {invite_type}")
+    logger.info(f"Tenant email opened: {purchase_token}")
 ```
 
 ---
 
 ## Security
 
-### Signature Verification
+### Handshake Token Verification
 
-Verify webhook authenticity using HMAC-SHA256 signatures.
+If you've configured a Handshake Token in your Partner Portal, verify it on every incoming request:
+
+**Python:**
 
 ```python
-import hmac
-import hashlib
-
-WEBHOOK_SECRET = "your_webhook_secret"  # From SingleKey dashboard
-
-def verify_signature(payload_body, signature):
-    """Verify webhook signature."""
-    expected = hmac.new(
-        WEBHOOK_SECRET.encode('utf-8'),
-        payload_body.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
-
-    return hmac.compare_digest(expected, signature)
+HANDSHAKE_TOKEN = "your_handshake_token"
 
 @app.route('/webhooks/singlekey', methods=['POST'])
 def handle_webhook():
-    # Get signature from header
-    signature = request.headers.get('X-SingleKey-Signature', '')
+    token = request.headers.get('Handshake-Token', '')
+    if token != HANDSHAKE_TOKEN:
+        return jsonify({"error": "Unauthorized"}), 401
 
-    # Get raw body
-    payload_body = request.get_data(as_text=True)
-
-    # Verify signature
-    if not verify_signature(payload_body, signature):
-        logger.warning("Invalid webhook signature")
-        return jsonify({"error": "Invalid signature"}), 401
-
-    # Process event
-    event = request.json
-    # ... handler logic
-
+    # Process webhook...
     return jsonify({"received": True}), 200
 ```
 
-### Timestamp Validation
+**Node.js:**
 
-Prevent replay attacks by validating timestamp freshness.
+```javascript
+const HANDSHAKE_TOKEN = 'your_handshake_token';
 
-```python
-import time
+app.post('/webhooks/singlekey', (req, res) => {
+  if (req.headers['handshake-token'] !== HANDSHAKE_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
-MAX_AGE_SECONDS = 300  # 5 minutes
-
-def validate_timestamp(timestamp_header):
-    """Ensure webhook is recent."""
-    try:
-        webhook_time = int(timestamp_header)
-        current_time = int(time.time())
-        age = abs(current_time - webhook_time)
-
-        return age < MAX_AGE_SECONDS
-    except (TypeError, ValueError):
-        return False
-
-@app.route('/webhooks/singlekey', methods=['POST'])
-def handle_webhook():
-    # Validate timestamp
-    timestamp = request.headers.get('X-SingleKey-Timestamp', '')
-    if not validate_timestamp(timestamp):
-        logger.warning("Webhook timestamp too old or invalid")
-        return jsonify({"error": "Invalid timestamp"}), 401
-
-    # Verify signature
-    # ... signature verification
-
-    # Process event
-    # ... handler logic
+  // Process webhook...
+  res.json({ received: true });
+});
 ```
 
 ---
@@ -324,45 +243,30 @@ def handle_webhook():
 
 ### Idempotent Handlers
 
-Webhooks may be delivered multiple times. Design handlers to be idempotent.
+Webhooks may be delivered more than once. Design your handlers to be idempotent:
 
 ```python
-def handle_completed(data):
-    """Idempotent handler for completed screening."""
+def handle_report_complete(data):
+    """Idempotent handler for completed report."""
     purchase_token = data['purchase_token']
-    webhook_id = data.get('webhook_id')
+
+    screening = Screening.objects.get(purchase_token=purchase_token)
 
     # Check if already processed
-    if ProcessedWebhook.objects.filter(webhook_id=webhook_id).exists():
-        logger.info(f"Webhook already processed: {webhook_id}")
+    if screening.status == 'completed':
+        logger.info(f"Already processed: {purchase_token}")
         return
 
-    # Process in transaction
-    with transaction.atomic():
-        # Mark as processed first (prevents race conditions)
-        ProcessedWebhook.objects.create(
-            webhook_id=webhook_id,
-            event_type='screening.completed',
-            purchase_token=purchase_token
-        )
+    screening.status = 'completed'
+    screening.save()
 
-        # Now process the event
-        screening = Screening.objects.select_for_update().get(
-            purchase_token=purchase_token
-        )
-
-        if screening.status != 'completed':
-            screening.status = 'completed'
-            screening.score = data.get('singlekey_score')
-            screening.save()
-
-            # Trigger side effects
-            notify_landlord(screening)
+    # Trigger side effects
+    notify_landlord(screening)
 ```
 
 ### Async Processing
 
-For long-running tasks, acknowledge immediately and process asynchronously.
+For long-running tasks, acknowledge immediately and process in the background:
 
 ```python
 from celery import Celery
@@ -371,94 +275,55 @@ celery = Celery('tasks', broker='redis://localhost:6379/0')
 
 @app.route('/webhooks/singlekey', methods=['POST'])
 def handle_webhook():
-    # Verify signature (quick)
-    if not verify_signature(request):
-        return jsonify({"error": "Invalid signature"}), 401
+    # Verify handshake token
+    token = request.headers.get('Handshake-Token', '')
+    if token != HANDSHAKE_TOKEN:
+        return jsonify({"error": "Unauthorized"}), 401
 
     # Queue for async processing
-    event = request.json
-    process_webhook.delay(event)
+    process_webhook.delay(request.json)
 
     # Return immediately
     return jsonify({"received": True}), 200
 
-@celery.task(bind=True, max_retries=3)
-def process_webhook(self, event):
-    """Process webhook asynchronously."""
-    try:
-        event_type = event.get('event')
-        data = event.get('data', {})
-
-        if event_type == 'screening.completed':
-            handle_completed(data)
-        elif event_type == 'screening.failed':
-            handle_failed(data)
-        # ... other handlers
-
-    except Exception as e:
-        logger.error(f"Webhook processing error: {e}")
-        # Retry with exponential backoff
-        raise self.retry(exc=e, countdown=2 ** self.request.retries)
+@celery.task
+def process_webhook(data):
+    detail = data.get('detail')
+    if detail == 'Report Complete':
+        handle_report_complete(data)
+    elif detail == 'Report in Progress':
+        handle_report_in_progress(data)
+    # ... other handlers
 ```
 
 ### Error Handling
 
-Always return 200 to prevent unnecessary retries for handled events.
+Always return 200 to acknowledge receipt, even if your processing fails:
 
 ```python
 @app.route('/webhooks/singlekey', methods=['POST'])
 def handle_webhook():
     try:
-        # Verify and process
-        if not verify_signature(request):
-            return jsonify({"error": "Invalid signature"}), 401
-
-        event = request.json
-        process_event(event)
-
-    except ScreeningNotFound:
-        # Screening doesn't exist in our system - don't retry
-        logger.warning(f"Unknown screening: {event.get('data', {}).get('purchase_token')}")
-
-    except TransientError as e:
-        # Temporary failure - do retry
-        logger.error(f"Transient error: {e}")
-        return jsonify({"error": "Temporary failure"}), 500
-
+        process_event(request.json)
     except Exception as e:
-        # Log error but don't retry - we received it
+        # Log error for debugging
         logger.error(f"Webhook processing error: {e}")
+        # Still return 200 — we received it, processing failed
+        # Fix your code and reprocess from logs
 
-    # Always return 200 for non-transient cases
     return jsonify({"received": True}), 200
 ```
 
 ---
 
-## Retry Policy
+## Retry Behavior
 
-SingleKey retries failed webhook deliveries with exponential backoff:
+The **Report Complete** webhook is retried once automatically if your endpoint returns a non-success status code. Other webhook types are not retried.
 
-| Attempt | Delay | Total Time |
-|---------|-------|------------|
-| 1 | Immediate | 0 |
-| 2 | 1 minute | 1 min |
-| 3 | 5 minutes | 6 min |
-| 4 | 30 minutes | 36 min |
-| 5 | 2 hours | 2.5 hours |
-| 6 | 12 hours | 14.5 hours |
-
-After 6 failed attempts, the webhook is abandoned.
-
-### What Triggers Retries
-
-| Response | Retried? |
-|----------|----------|
-| 200-299 | No |
-| 400-499 | No (client error) |
-| 500-599 | Yes |
-| Timeout (>30s) | Yes |
-| Connection refused | Yes |
+To avoid missed events:
+- Always return `200` promptly
+- Log all incoming webhooks for replay if needed
+- Use the SingleKey admin portal to check webhook delivery status
 
 ---
 
@@ -475,25 +340,8 @@ brew install ngrok
 # Start tunnel
 ngrok http 3000
 
-# Use the URL as callback_url
+# Use the generated URL as your webhook URL
 # https://abc123.ngrok.io/webhooks/singlekey
-```
-
-### Sandbox Testing
-
-In sandbox mode, create test screenings that trigger webhooks:
-
-```bash
-curl -X POST "https://sandbox.singlekey.com/api/request" \
-  -H "Authorization: Token your_sandbox_token" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "external_customer_id": "test-landlord",
-    "external_tenant_id": "test-tenant",
-    "run_now": true,
-    "callback_url": "https://your-ngrok-url/webhooks/singlekey",
-    // ... test data
-  }'
 ```
 
 ### Manual Testing
@@ -503,200 +351,174 @@ Simulate webhook payloads locally:
 ```python
 import requests
 
-def simulate_webhook(event_type, data):
-    """Simulate webhook for testing."""
+def simulate_webhook(detail, purchase_token):
+    """Simulate a SingleKey webhook for testing."""
     payload = {
-        "event": event_type,
-        "timestamp": "2024-01-15T10:30:00Z",
-        "webhook_id": f"test_{event_type}_{time.time()}",
-        "data": data
+        "detail": detail,
+        "purchase_token": purchase_token,
+        "external_customer_id": "test-landlord",
+        "external_tenant_id": "test-tenant"
     }
 
     response = requests.post(
         "http://localhost:5000/webhooks/singlekey",
         json=payload,
-        headers={"X-SingleKey-Signature": "test_signature"}
+        headers={"Handshake-Token": "your_handshake_token"},
+        params={"pt": purchase_token}
     )
 
+    print(f"Status: {response.status_code}")
     return response
 
-# Test completed event
-simulate_webhook('screening.completed', {
-    "purchase_token": "test_token_123",
-    "external_customer_id": "test-landlord",
-    "external_tenant_id": "test-tenant",
-    "singlekey_score": 720
-})
+# Test each webhook type
+simulate_webhook("Request sent to tenant", "test_token_123")
+simulate_webhook("Tenant email opened", "test_token_123")
+simulate_webhook("Report in Progress", "test_token_123")
+simulate_webhook("Partial Report Complete", "test_token_123")
+simulate_webhook("Report Complete", "test_token_123")
 ```
 
----
+### Webhook Logs
 
-## Monitoring
+View webhook delivery logs in your SingleKey admin portal:
 
-### Logging
-
-Log all webhook activity for debugging:
-
-```python
-import logging
-
-logger = logging.getLogger('webhooks')
-
-@app.route('/webhooks/singlekey', methods=['POST'])
-def handle_webhook():
-    event = request.json
-    event_type = event.get('event')
-    webhook_id = event.get('webhook_id')
-
-    logger.info(f"Webhook received: {event_type}, id: {webhook_id}")
-
-    try:
-        process_event(event)
-        logger.info(f"Webhook processed: {webhook_id}")
-
-    except Exception as e:
-        logger.error(f"Webhook error: {webhook_id}, error: {e}")
-        raise
-
-    return jsonify({"received": True}), 200
-```
-
-### Metrics
-
-Track webhook metrics for observability:
-
-```python
-from prometheus_client import Counter, Histogram
-
-webhook_received = Counter(
-    'singlekey_webhooks_received_total',
-    'Total webhooks received',
-    ['event_type']
-)
-
-webhook_processing_time = Histogram(
-    'singlekey_webhook_processing_seconds',
-    'Webhook processing time',
-    ['event_type']
-)
-
-@app.route('/webhooks/singlekey', methods=['POST'])
-def handle_webhook():
-    event = request.json
-    event_type = event.get('event')
-
-    webhook_received.labels(event_type=event_type).inc()
-
-    with webhook_processing_time.labels(event_type=event_type).time():
-        process_event(event)
-
-    return jsonify({"received": True}), 200
-```
+1. Log in to `platform.singlekey.com/admin`
+2. Navigate to **Webhooks** > **Delivery Logs**
+3. View status, payload, and response for each delivery attempt
 
 ---
 
 ## Complete Example
 
+### Python (Flask)
+
 ```python
 from flask import Flask, request, jsonify
-import hmac
-import hashlib
 import logging
-from celery import Celery
+import requests
 
 app = Flask(__name__)
-celery = Celery('tasks', broker='redis://localhost:6379/0')
 logger = logging.getLogger('webhooks')
 
-WEBHOOK_SECRET = "your_webhook_secret"
-
-def verify_signature(req):
-    """Verify webhook signature."""
-    signature = req.headers.get('X-SingleKey-Signature', '')
-    payload = req.get_data(as_text=True)
-
-    expected = hmac.new(
-        WEBHOOK_SECRET.encode(),
-        payload.encode(),
-        hashlib.sha256
-    ).hexdigest()
-
-    return hmac.compare_digest(expected, signature)
+HANDSHAKE_TOKEN = "your_handshake_token"
+SINGLEKEY_TOKEN = "your_api_token"
+SINGLEKEY_BASE_URL = "https://platform.singlekey.com"
 
 @app.route('/webhooks/singlekey', methods=['POST'])
 def handle_webhook():
-    # Verify signature
-    if not verify_signature(request):
-        logger.warning("Invalid webhook signature")
-        return jsonify({"error": "Invalid signature"}), 401
+    # Verify handshake token
+    token = request.headers.get('Handshake-Token', '')
+    if HANDSHAKE_TOKEN and token != HANDSHAKE_TOKEN:
+        logger.warning("Invalid handshake token")
+        return jsonify({"error": "Unauthorized"}), 401
 
-    # Queue for async processing
-    event = request.json
-    process_webhook.delay(event)
+    data = request.json
+    detail = data.get('detail')
+    purchase_token = data.get('purchase_token')
+
+    logger.info(f"Webhook received: {detail}, token: {purchase_token}")
+
+    try:
+        if detail == 'Report Complete':
+            handle_report_complete(data)
+        elif detail == 'Report in Progress':
+            handle_report_in_progress(data)
+        elif detail == 'Partial Report Complete':
+            handle_partial_report(data)
+        elif detail == 'Request sent to tenant':
+            handle_request_sent(data)
+        elif detail == 'Tenant email opened':
+            handle_email_opened(data)
+        else:
+            logger.info(f"Unknown webhook detail: {detail}")
+    except Exception as e:
+        logger.error(f"Error processing webhook: {e}")
 
     return jsonify({"received": True}), 200
 
-@celery.task(bind=True, max_retries=3)
-def process_webhook(self, event):
-    """Process webhook asynchronously."""
-    event_type = event.get('event')
-    data = event.get('data', {})
-    webhook_id = event.get('webhook_id')
 
-    logger.info(f"Processing webhook: {event_type}, id: {webhook_id}")
-
-    try:
-        if event_type == 'screening.completed':
-            handle_screening_completed(data)
-        elif event_type == 'screening.submitted':
-            handle_screening_submitted(data)
-        elif event_type == 'screening.failed':
-            handle_screening_failed(data)
-        elif event_type == 'form.opened':
-            handle_form_opened(data)
-        elif event_type == 'invite.sent':
-            handle_invite_sent(data)
-        else:
-            logger.info(f"Unknown event type: {event_type}")
-
-    except Exception as e:
-        logger.error(f"Webhook processing error: {e}")
-        raise self.retry(exc=e, countdown=2 ** self.request.retries)
-
-def handle_screening_completed(data):
-    """Process completed screening."""
+def handle_report_complete(data):
     purchase_token = data['purchase_token']
-    score = data.get('singlekey_score')
 
-    # Update database
-    from models import Screening
-    screening = Screening.objects.get(purchase_token=purchase_token)
-    screening.status = 'completed'
-    screening.score = score
-    screening.save()
-
-    # Notify landlord
-    from notifications import send_email
-    send_email(
-        to=screening.landlord_email,
-        subject="Tenant Screening Complete",
-        body=f"Screening for {screening.tenant_name} is complete. Score: {score}"
+    # Fetch the full report
+    response = requests.get(
+        f"{SINGLEKEY_BASE_URL}/api/report/{purchase_token}",
+        headers={"Authorization": f"Token {SINGLEKEY_TOKEN}"}
     )
+    report = response.json()
 
-def handle_screening_submitted(data):
-    pass  # Implementation
+    logger.info(f"Report complete for {purchase_token}")
+    # Update your database, notify landlord, etc.
 
-def handle_screening_failed(data):
-    pass  # Implementation
 
-def handle_form_opened(data):
-    pass  # Implementation
+def handle_report_in_progress(data):
+    logger.info(f"Tenant submitted application: {data['purchase_token']}")
 
-def handle_invite_sent(data):
-    pass  # Implementation
+
+def handle_partial_report(data):
+    logger.info(f"Partial report ready: {data['purchase_token']}")
+
+
+def handle_request_sent(data):
+    logger.info(f"Invitation sent to tenant: {data['purchase_token']}")
+
+
+def handle_email_opened(data):
+    logger.info(f"Tenant started application: {data['purchase_token']}")
+
 
 if __name__ == '__main__':
     app.run(port=5000)
+```
+
+### Node.js (Express)
+
+```javascript
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+const HANDSHAKE_TOKEN = 'your_handshake_token';
+
+app.post('/webhooks/singlekey', (req, res) => {
+  // Verify handshake token
+  if (HANDSHAKE_TOKEN && req.headers['handshake-token'] !== HANDSHAKE_TOKEN) {
+    console.warn('Invalid handshake token');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { detail, purchase_token, external_customer_id, external_tenant_id } = req.body;
+  console.log(`Webhook received: ${detail}, token: ${purchase_token}`);
+
+  switch (detail) {
+    case 'Report Complete':
+      console.log(`Report ready — fetch via GET /api/report/${purchase_token}`);
+      break;
+
+    case 'Report in Progress':
+      console.log(`Tenant submitted application for ${purchase_token}`);
+      break;
+
+    case 'Partial Report Complete':
+      console.log(`Partial report available for ${purchase_token}`);
+      break;
+
+    case 'Request sent to tenant':
+      console.log(`Invitation sent for ${purchase_token}`);
+      break;
+
+    case 'Tenant email opened':
+      console.log(`Tenant started application for ${purchase_token}`);
+      break;
+
+    default:
+      console.log(`Unknown webhook: ${detail}`);
+  }
+
+  res.json({ received: true });
+});
+
+app.listen(3000, () => console.log('Webhook server running on port 3000'));
 ```
 
 ---

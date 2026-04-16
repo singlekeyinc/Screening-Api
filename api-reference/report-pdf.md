@@ -192,6 +192,8 @@ with open(output_path, 'wb') as f:
 
 ## Notes
 
+- This endpoint returns a **direct download** of the PDF file
+- If you prefer a hosted link instead, use `GET /screen/embedded_flow_get_report/<purchase_token>` — the response includes a `report_url` (an S3 link valid for 5 days)
 - The PDF includes all screening results: credit report, background check, and SingleKey score
 - PDF generation may take a few seconds after screening completion
 - Check `pdf_report_ready` in the report status before downloading

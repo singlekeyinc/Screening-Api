@@ -39,7 +39,7 @@ Form-based integration is ideal when you want to:
      │                  │  5. Process screening                   │
      │                  │ ───────────────────────────────────────►│
      │                  │                    │                    │
-     │  6. Webhook: screening.completed      │                    │
+     │  6. Webhook: "Report Complete"         │                    │
      │ ◄─────────────────────────────────────────────────────────│
      │                  │                    │                    │
      │  7. GET /api/report/{token}           │                    │
@@ -98,7 +98,6 @@ curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
     "ten_first_name": "Jane",
     "ten_last_name": "Doe",
     "ten_email": "tenant@example.com",
-    "callback_url": "https://yoursite.com/webhooks/singlekey"
   }'
 ```
 
@@ -148,10 +147,10 @@ After landlord submits, tenant receives an email with their application link.
 # Webhook handler
 @app.route('/webhooks/singlekey', methods=['POST'])
 def handle_webhook():
-    event = request.json
+    data = request.json
 
-    if event['event'] == 'screening.completed':
-        token = event['data']['purchase_token']
+    if data['detail'] == 'Report Complete':
+        token = data['purchase_token']
         fetch_and_store_report(token)
 
     return jsonify({"received": True}), 200
@@ -187,7 +186,6 @@ curl -X POST "https://platform.singlekey.com/screen/embedded_flow_request" \
     "tenant_form": true,
     "ten_email": "tenant@example.com",
     "purchase_address": "123 Main St, Toronto, ON, Canada, M5V 1A1",
-    "callback_url": "https://yoursite.com/webhooks/singlekey"
   }'
 ```
 
@@ -415,7 +413,6 @@ def create_application(listing_id):
             "ten_email": tenant_email,
             "purchase_address": listing['address'],
             "purchase_rent": listing['rent'],
-            "callback_url": "https://yoursite.com/webhooks/singlekey"
         }
     )
 
@@ -435,22 +432,20 @@ def create_application(listing_id):
 # Step 2: Handle webhook
 @app.route('/webhooks/singlekey', methods=['POST'])
 def handle_webhook():
-    event = request.json
+    data = request.json
 
-    if event['event'] == 'screening.completed':
-        token = event['data']['purchase_token']
-        tenant_id = event['data']['external_tenant_id']
-        score = event['data'].get('singlekey_score')
+    if data['detail'] == 'Report Complete':
+        token = data['purchase_token']
+        tenant_id = data['external_tenant_id']
 
         # Update application status
         update_application(
             purchase_token=token,
-            status='completed',
-            score=score
+            status='completed'
         )
 
         # Notify landlord
-        notify_landlord(token, score)
+        notify_landlord(token)
 
     return jsonify({"received": True}), 200
 
